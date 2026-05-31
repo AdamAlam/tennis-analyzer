@@ -1,0 +1,25 @@
+# =============================================================================
+# Tennis Match Analyzer - Python dependencies
+#
+# IMPORTANT (RTX 5090 / Blackwell sm_120):
+#   Install torch + torchvision SEPARATELY *first* from the CUDA 12.8 index,
+#   BEFORE installing this file, so pip does not resolve a CPU/wrong-CUDA wheel:
+#
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#     pip install -r requirements.txt
+#
+#   Then verify:  python scripts/check_cuda.py
+# =============================================================================
+
+ultralytics>=8.3.0        # YOLO11 + built-in ByteTrack/BoT-SORT trackers
+mss>=9.0.1                # fast screen capture
+opencv-python>=4.10.0     # video IO, drawing, ROI selection
+numpy>=1.26,<2.2          # array backbone (pinned <2.2 for wide wheel compat)
+pydantic>=2.7             # typed, validated configuration
+pyyaml>=6.0               # config.yaml parsing
+scipy>=1.13               # trajectory smoothing / bounce detection (Step 6)
+filterpy>=1.4.5           # Kalman smoothing for the ball track (Step 5)
+rich>=13.7                # pretty console logging / FPS tables
+
+# --- Optional, enabled in later steps -----------------------------------------
+easyocr>=1.7.1            # scoreboard OCR (Step 7); pulls its own torch-based models

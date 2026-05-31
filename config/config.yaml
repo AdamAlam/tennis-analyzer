@@ -1,0 +1,69 @@
+# =============================================================================
+# Tennis Match Analyzer - configuration (single source of truth)
+# Validated by src/tennis_analyzer/config.py (pydantic). See README for usage.
+# =============================================================================
+
+source:
+  type: "screen"          # "screen" | "file"  (CLI --source / --file overrides this)
+  file:
+    path: "data/match.mp4"
+    loop: false           # restart from the beginning when the file ends
+    realtime: true        # true  = pace to the video's native FPS (true real-time feel)
+                          # false = analyze as fast as the GPU allows
+
+capture:                  # used only when source.type == "screen"
+  monitor: 1              # mss monitor index (1 = primary display)
+  region:                 # set this with: python scripts/calibrate_region.py
+    top: 200
+    left: 300
+    width: 1280
+    height: 720
+  target_fps: 60          # capture cap; actual throughput depends on inference cost
+
+device: "cuda:0"          # "cuda:0" on the 5090; "cpu" only for smoke tests
+half_precision: true      # FP16 inference (fast on Blackwell)
+
+detection:
+  yolo:
+    weights: "models/yolo/yolo11n.pt"   # swap to fine-tuned tennis weights later (Step 3)
+    conf: 0.30
+    iou: 0.50
+    imgsz: 640
+    classes: null         # null = all COCO classes; later restrict, e.g. [0, 32]
+  ball:
+    backend: "yolo"       # "yolo" (MVP fallback) | "tracknet" (Step 5)
+    tracknet_weights: "models/tracknet/tracknet_tennis.pt"
+    conf: 0.50
+
+tracking:
+  tracker: "bytetrack.yaml"   # ultralytics built-in ("bytetrack.yaml" | "botsort.yaml")
+  persist: true
+
+court:
+  enabled: false          # turn on at Step 4
+  weights: "models/court/court_keypoints.pt"
+  refresh_every: 30       # re-detect keypoints every N frames (cheap for a fixed camera)
+
+logic:
+  enabled: false          # turn on at Step 6
+
+ocr:
+  enabled: false          # turn on at Step 7
+  region:                 # scoreboard sub-region (relative to the captured frame)
+    top: 40
+    left: 60
+    width: 480
+    height: 90
+  refresh_every: 15       # run OCR every N frames
+
+highlights:
+  enabled: false          # turn on at Step 8
+  pre_seconds: 6
+  post_seconds: 3
+  output_dir: "output/highlights"
+
+viz:
+  show_window: true
+  draw_fps: true
+  draw_tracks: true
+  window_name: "Tennis Analyzer"

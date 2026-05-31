@@ -1,0 +1,32 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Large / generated artifacts
+models/**/*.pt
+models/**/*.pth
+models/**/*.onnx
+models/**/*.engine
+data/
+output/
+*.mp4
+*.mkv
+*.avi
+
+# Keep folder placeholders
+!**/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
