@@ -55,6 +55,10 @@ class CourtDetector:
         """Return ``(14, 3)`` array of ``(x, y, conf)`` keypoints in original image pixels.
 
         Missing/low-confidence keypoints have ``conf == 0`` and ``NaN`` coordinates.
+
+        The peak of each keypoint heatmap is found with a single vectorized ``argmax`` on the
+        GPU (then only 14 scalars are copied to the CPU), instead of running an OpenCV blob
+        detection per channel - this keeps the stage to ~model-forward time.
         """
         torch = self.torch
         h0, w0 = frame.shape[:2]
@@ -66,24 +70,19 @@ class CourtDetector:
         inp = inp.half() if self.half else inp.float()
 
         with torch.no_grad():
-            out = self.model(inp)                       # (1, 14, H, W)
-            heatmaps = torch.sigmoid(out)[0].detach().cpu().numpy()
+            out = self.model(inp)[0]                              # (15, H, W)
+            heat = torch.sigmoid(out[:_NUM_KEYPOINTS].float())    # (14, H, W)
+            hh, hw = heat.shape[1], heat.shape[2]
+            conf, idx = heat.reshape(_NUM_KEYPOINTS, -1).max(dim=1)
+            conf = conf.cpu().numpy()
+            idx = idx.cpu().numpy()
 
+        ys, xs = np.divmod(idx, hw)
         sx, sy = w0 / self.in_w, h0 / self.in_h
-        thresh = int(np.clip(self.min_conf, 0.0, 1.0) * 255)
 
         points = np.full((_NUM_KEYPOINTS, 3), np.nan, dtype=np.float32)
-        for k in range(_NUM_KEYPOINTS):
-            hm = (heatmaps[k] * 255).astype(np.uint8)
-            _, binary = cv2.threshold(hm, thresh, 255, cv2.THRESH_BINARY)
-            if not binary.any():
-                points[k, 2] = 0.0
-                continue
-            num, _, stats, centroids = cv2.connectedComponentsWithStats(binary)
-            if num <= 1:
-                points[k, 2] = 0.0
-                continue
-            largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-            cx, cy = centroids[largest]
-            points[k] = (cx * sx, cy * sy, float(heatmaps[k].max()))
+        valid = conf >= self.min_conf
+        points[valid, 0] = xs[valid] * sx
+        points[valid, 1] = ys[valid] * sy
+        points[:, 2] = np.where(valid, conf, 0.0)
         return points

@@ -82,6 +82,8 @@ class Pipeline:
             )
         self.homography = None
         self.keypoints = None
+        self._court_ok = False
+        self._court_warned = False
 
         self.bounce_detector = None
         self.match_state = None
@@ -155,19 +157,34 @@ class Pipeline:
         return self._fps
 
     def _update_court(self, frame) -> None:
-        """Refresh court keypoints + homography (cheap; only every refresh_every frames)."""
+        """Refresh court keypoints + homography on a fixed cadence (cheap for a fixed camera).
+
+        The cadence is purely time-based (every ``refresh_every`` frames) so a failed
+        homography fit does not force the detector to run on every frame.
+        """
         if self.court_detector is None:
             return
-        if self._frame_index % max(1, self.cfg.court.refresh_every) != 0 and self.homography:
+        # Always run on the very first frame, then every ``refresh_every`` frames.
+        period = max(1, self.cfg.court.refresh_every)
+        if self.keypoints is not None and (self._frame_index % period != 0):
             return
         from .court.homography import CourtHomography
 
         self.keypoints = self.court_detector.detect(frame)
+        n_valid = int((self.keypoints[:, 2] > 0).sum()) if self.keypoints is not None else 0
         try:
             self.homography = CourtHomography(self.keypoints)
+            self._court_ok = True
         except ValueError:
             # Not enough confident keypoints this refresh; keep the previous homography.
-            pass
+            if not getattr(self, "_court_warned", False) and not getattr(self, "_court_ok", False):
+                print(
+                    f"[court] only {n_valid}/14 keypoints above conf "
+                    f"{self.cfg.court.min_conf:.2f}; need >=4 to build a homography. "
+                    "Lower court.min_conf or make sure the full court is in frame.",
+                    flush=True,
+                )
+                self._court_warned = True
 
     # ------------------------------------------------------------------ #
     def process_frame(self, frame):
