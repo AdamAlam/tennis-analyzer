@@ -31,7 +31,7 @@ detection:
     imgsz: 640
     classes: null         # null = all COCO classes; later restrict, e.g. [0, 32]
   ball:
-    backend: "yolo"       # "yolo" (MVP fallback) | "tracknet" (needs the TrackNet weights)
+    backend: "tracknet"   # "yolo" (MVP fallback) | "tracknet" (needs the TrackNet weights)
     tracknet_weights: "models/tracknet/tracknet_tennis.pt"
     conf: 0.50
     input_size:           # TrackNet input resolution (the pretrained model expects 640x360)
@@ -47,14 +47,14 @@ tracking:
   max_players: 2          # keep only the N most court-central/largest people
 
 court:
-  enabled: false          # set true once models/court/court_keypoints.pt is present
+  enabled: true           # set true once models/court/court_keypoints.pt is present
   weights: "models/court/court_keypoints.pt"
   refresh_every: 30       # re-detect keypoints every N frames (cheap for a fixed camera)
-  min_conf: 0.5           # per-keypoint heatmap confidence threshold
+  min_conf: 0.65          # per-keypoint heatmap confidence threshold (~170/255)
   singles: true           # in/out tested against the singles lines when true
 
 logic:
-  enabled: false          # needs court.enabled (homography) for in/out + bounce mapping
+  enabled: true           # needs court.enabled (homography) for in/out + bounce mapping
   ball_lost_frames: 45    # frames with no ball before a point is deemed over
   bounce_min_vy: 2.0      # min vertical speed (px/frame) to accept a bounce apex
   bounce_cooldown: 8      # min frames between reported bounces

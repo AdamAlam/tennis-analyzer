@@ -63,8 +63,10 @@ class TrackNetBallTracker(BallTracker):
 
     # ------------------------------------------------------------------ #
     def _preprocess(self) -> "np.ndarray":
-        # Newest frame first, matching the reference implementation's ordering.
-        stacked = np.concatenate(self._frames[::-1], axis=2)  # (H, W, 9), RGB triples
+        # Newest frame first, matching the reference implementation's ordering. Frames are
+        # kept in BGR (no color conversion) because the pretrained model was trained on
+        # OpenCV-decoded BGR frames.
+        stacked = np.concatenate(self._frames[::-1], axis=2)  # (H, W, 9), BGR triples
         stacked = stacked.astype(np.float32) / 255.0
         chw = np.rollaxis(stacked, 2, 0)                      # (9, H, W)
         return chw[np.newaxis, ...]                           # (1, 9, H, W)
@@ -89,8 +91,8 @@ class TrackNetBallTracker(BallTracker):
         torch = self.torch
         h0, w0 = frame.shape[:2]
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        small = cv2.resize(rgb, (self.in_w, self.in_h))
+        # Keep BGR (the pretrained TrackNet was trained on OpenCV-decoded BGR frames).
+        small = cv2.resize(frame, (self.in_w, self.in_h))
         self._frames.append(small)
         if len(self._frames) > 3:
             self._frames.pop(0)

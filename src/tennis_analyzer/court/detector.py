@@ -59,8 +59,8 @@ class CourtDetector:
         torch = self.torch
         h0, w0 = frame.shape[:2]
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        small = cv2.resize(rgb, (self.in_w, self.in_h)).astype(np.float32) / 255.0
+        # Keep BGR (the pretrained court model was trained on OpenCV-decoded BGR frames).
+        small = cv2.resize(frame, (self.in_w, self.in_h)).astype(np.float32) / 255.0
         chw = np.rollaxis(small, 2, 0)[np.newaxis, ...]
         inp = torch.from_numpy(chw).to(self.device)
         inp = inp.half() if self.half else inp.float()

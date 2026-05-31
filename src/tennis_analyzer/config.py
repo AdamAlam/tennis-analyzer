@@ -82,7 +82,7 @@ class CourtCfg(BaseModel):
     enabled: bool = False
     weights: str = "models/court/court_keypoints.pt"
     refresh_every: int = 30
-    min_conf: float = 0.5
+    min_conf: float = 0.65     # per-keypoint heatmap threshold (~170/255, matches the repo)
     singles: bool = True       # in/out tested against singles lines when True
 
 
