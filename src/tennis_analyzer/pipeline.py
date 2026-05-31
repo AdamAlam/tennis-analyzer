@@ -9,8 +9,9 @@ the MVP up to the full analyzer without changing ``main.py``.
 
 from __future__ import annotations
 
+import os
 import time
-from collections import deque
+from collections import defaultdict, deque
 
 import cv2
 
@@ -125,7 +126,26 @@ class Pipeline:
         self._fps = 0.0
         self._prev_t = time.perf_counter()
 
+        # Optional per-stage profiler (set env TENNIS_PROFILE=1 to print a breakdown).
+        self._profile = os.environ.get("TENNIS_PROFILE", "") not in ("", "0", "false")
+        self._stage_ms: dict[str, float] = defaultdict(float)
+        self._prof_frames = 0
+
     # ------------------------------------------------------------------ #
+    def _report_profile(self) -> None:
+        n = self._prof_frames
+        if not self._profile or n == 0:
+            return
+        total = sum(self._stage_ms.values()) / n
+        parts = "  ".join(
+            f"{name}={ms / n:5.1f}ms" for name, ms in sorted(
+                self._stage_ms.items(), key=lambda kv: kv[1], reverse=True)
+        )
+        print(f"[profile] frame={total:5.1f}ms ({1000.0 / total:5.1f} FPS budget)  {parts}",
+              flush=True)
+        self._stage_ms.clear()
+        self._prof_frames = 0
+
     def _tick_fps(self) -> float:
         now = time.perf_counter()
         dt = now - self._prev_t
@@ -155,20 +175,32 @@ class Pipeline:
         cfg = self.cfg
         idx = self._frame_index
         t = idx / self.fps
+        prof = self._profile
+        clk = time.perf_counter
 
         # Players: tracked (stable ids) when enabled, else raw detections.
+        t0 = clk()
         if self.player_tracker is not None:
             detections = self.player_tracker.update(frame)
         else:
             detections = self.detector.detect(frame)
+        if prof:
+            self._stage_ms["players"] += (clk() - t0) * 1000
 
+        t0 = clk()
         ball = self.ball_tracker.update(frame)
+        if prof:
+            self._stage_ms["ball"] += (clk() - t0) * 1000
         ball_xy = ball.xy if ball is not None else None
         self._trace.append(ball_xy)
 
+        t0 = clk()
         self._update_court(frame)
+        if prof:
+            self._stage_ms["court"] += (clk() - t0) * 1000
 
         # Game logic.
+        t0 = clk()
         if self.match_state is not None:
             bounce = self.bounce_detector.update(
                 ball_xy, idx, t, homography=self.homography, singles=cfg.court.singles
@@ -182,12 +214,23 @@ class Pipeline:
             ):
                 self._handle_event(ev, t)
             self._score.update(self.match_state.score)
+        if prof:
+            self._stage_ms["logic"] += (clk() - t0) * 1000
 
         # Scoreboard OCR (throttled internally).
+        t0 = clk()
         if self.scoreboard is not None:
             self._score.update(self.scoreboard.read(frame, idx))
+        if prof:
+            self._stage_ms["ocr"] += (clk() - t0) * 1000
 
+        t0 = clk()
         annotated = self._draw(frame, detections, ball)
+        if prof:
+            self._stage_ms["draw"] += (clk() - t0) * 1000
+            self._prof_frames += 1
+            if self._prof_frames >= 60:
+                self._report_profile()
 
         # Highlights: buffer every frame; clips are triggered by events above.
         if self.recorder is not None:
@@ -241,17 +284,29 @@ class Pipeline:
     def run(self) -> None:
         """Main loop: capture -> process -> display until EOF or the user quits."""
         cfg = self.cfg
+        prof = self._profile
+        clk = time.perf_counter
         try:
-            for frame in self.source:
+            while True:
+                t0 = clk()
+                frame = self.source.grab()
+                if prof:
+                    self._stage_ms["capture"] += (clk() - t0) * 1000
+                if frame is None:
+                    break
+
                 frame = self.process_frame(frame)
                 fps = self._tick_fps()
 
+                t0 = clk()
                 if cfg.viz.show_window:
                     if cfg.viz.draw_fps:
                         draw_hud(frame, fps)
                     cv2.imshow(cfg.viz.window_name, frame)
                     if (cv2.waitKey(1) & 0xFF) == ord("q"):
                         break
+                if prof:
+                    self._stage_ms["display"] += (clk() - t0) * 1000
         finally:
             self.source.close()
             if self.recorder is not None:
