@@ -63,7 +63,7 @@ class BallCfg(BaseModel):
     conf: float = 0.50
     input_size: SizeCfg = Field(default_factory=SizeCfg)
     kalman: bool = True
-    max_dist: float = 100.0   # outlier gate: max ball jump (px) between frames
+    max_dist: float = 250.0   # outlier gate: max ball jump (px) between frames
 
 
 class DetectionCfg(BaseModel):
@@ -124,6 +124,7 @@ class VizCfg(BaseModel):
 class AppConfig(BaseModel):
     source: SourceCfg = Field(default_factory=SourceCfg)
     capture: CaptureCfg
+    prefetch: bool = True     # decode/grab the next frame on a background thread
     device: str = "cuda:0"
     half_precision: bool = True
     detection: DetectionCfg = Field(default_factory=DetectionCfg)

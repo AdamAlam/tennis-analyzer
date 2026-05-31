@@ -20,6 +20,8 @@ capture:                  # used only when source.type == "screen"
     height: 720
   target_fps: 60          # capture cap; actual throughput depends on inference cost
 
+prefetch: true            # decode/grab the next frame on a background thread (overlaps GPU)
+
 device: "cuda:0"          # "cuda:0" on the 5090; "cpu" only for smoke tests
 half_precision: true      # FP16 inference (fast on Blackwell)
 
@@ -38,7 +40,7 @@ detection:
       width: 640
       height: 360
     kalman: true          # smooth the ball track + bridge single-frame misses
-    max_dist: 100.0       # reject ball jumps larger than this many px between frames
+    max_dist: 250.0       # reject ball jumps larger than this many px between frames
 
 tracking:
   enabled: true           # ByteTrack player tracking with stable ids (uses the YOLO weights)

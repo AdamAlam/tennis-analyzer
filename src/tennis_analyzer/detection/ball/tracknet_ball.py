@@ -71,21 +71,6 @@ class TrackNetBallTracker(BallTracker):
         chw = np.rollaxis(stacked, 2, 0)                      # (9, H, W)
         return chw[np.newaxis, ...]                           # (1, 9, H, W)
 
-    def _decode(self, heatmap: np.ndarray) -> tuple[float, float] | None:
-        """Return the ball pixel (in model-input coords) from a 0..255 heatmap, or None."""
-        hm = heatmap.astype(np.uint8)
-        _, binary = cv2.threshold(hm, self.thresh, 255, cv2.THRESH_BINARY)
-        if not binary.any():
-            return None
-        # Largest bright connected component -> its intensity-weighted centroid.
-        num, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
-        if num <= 1:
-            return None
-        # Index 0 is the background; pick the largest foreground component.
-        largest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-        cx, cy = centroids[largest]
-        return (float(cx), float(cy))
-
     # ------------------------------------------------------------------ #
     def update(self, frame: np.ndarray) -> BallObservation | None:
         torch = self.torch
@@ -103,13 +88,20 @@ class TrackNetBallTracker(BallTracker):
             inp = torch.from_numpy(self._preprocess()).to(self.device)
             inp = inp.half() if self.half else inp.float()
             with torch.no_grad():
-                out = self.model(inp)                         # (1, 256, H, W)
-            heatmap = out.argmax(dim=1)[0].detach().cpu().numpy()  # (H, W), 0..255
-            peak = self._decode(heatmap)
-            if peak is not None:
+                out = self.model(inp)                         # (1, 256, Hm, Wm)
+                hm_h, hm_w = out.shape[2], out.shape[3]
+                # Per-pixel predicted intensity (0..255), then the single brightest pixel.
+                # This is the ball peak - robust to large dim regions and avoids a full
+                # heatmap copy + connectedComponents on the CPU.
+                intensity = out.argmax(dim=1).reshape(-1)     # (Hm*Wm,) on GPU
+                peak_val, peak_idx = intensity.max(dim=0)
+            pv = float(peak_val.item())
+            if pv >= self.thresh:
+                idx = int(peak_idx.item())
+                py, px = divmod(idx, hm_w)
                 # Rescale from model-input space back to the original frame.
-                sx, sy = w0 / self.in_w, h0 / self.in_h
-                candidate = (peak[0] * sx, peak[1] * sy)
+                sx, sy = w0 / hm_w, h0 / hm_h
+                candidate = (px * sx, py * sy)
                 # Outlier gate: reject implausible jumps from the last accepted position.
                 if self._last_xy is not None:
                     jump = np.hypot(candidate[0] - self._last_xy[0],
@@ -119,7 +111,7 @@ class TrackNetBallTracker(BallTracker):
                 if candidate is not None:
                     measured = candidate
                     self._last_xy = candidate
-                    conf = float(heatmap.max()) / 255.0
+                    conf = pv / 255.0
 
         # Smooth / bridge gaps with the Kalman filter when enabled.
         if self._kalman is not None:
