@@ -19,6 +19,7 @@ pydantic>=2.7             # typed, validated configuration
 pyyaml>=6.0               # config.yaml parsing
 scipy>=1.13               # trajectory smoothing / bounce detection (Step 6)
 filterpy>=1.4.5           # Kalman smoothing for the ball track (Step 5)
+gdown>=5.1.0             # fetch the TrackNet + court weights from Google Drive
 rich>=13.7                # pretty console logging / FPS tables
 
 # --- Optional, enabled in later steps -----------------------------------------

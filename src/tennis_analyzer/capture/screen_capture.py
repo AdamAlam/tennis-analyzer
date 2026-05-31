@@ -36,6 +36,7 @@ class ScreenCapture(FrameSource):
             "mon": monitor,
         }
         self._min_dt = 1.0 / target_fps if target_fps else 0.0
+        self.fps = float(target_fps) if target_fps else 30.0
         self._sct = mss()
         self._last = 0.0
 

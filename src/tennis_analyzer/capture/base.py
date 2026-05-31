@@ -27,6 +27,9 @@ class FrameSource(ABC):
     file reaching EOF). Live sources never return ``None``.
     """
 
+    #: Frame rate of the source. Subclasses set this (file = native FPS, screen = target FPS).
+    fps: float = 30.0
+
     @abstractmethod
     def grab(self) -> np.ndarray | None:
         """Return the next BGR frame, or ``None`` if the stream has ended."""

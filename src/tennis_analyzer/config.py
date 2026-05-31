@@ -25,6 +25,13 @@ class RegionCfg(BaseModel):
     height: int
 
 
+class SizeCfg(BaseModel):
+    """A width x height pair (e.g. a model's input resolution)."""
+
+    width: int = 640
+    height: int = 360
+
+
 class FileSourceCfg(BaseModel):
     path: str = "data/match.mp4"
     loop: bool = False
@@ -54,6 +61,9 @@ class BallCfg(BaseModel):
     backend: Literal["yolo", "tracknet"] = "yolo"
     tracknet_weights: str = "models/tracknet/tracknet_tennis.pt"
     conf: float = 0.50
+    input_size: SizeCfg = Field(default_factory=SizeCfg)
+    kalman: bool = True
+    max_dist: float = 100.0   # outlier gate: max ball jump (px) between frames
 
 
 class DetectionCfg(BaseModel):
@@ -62,18 +72,25 @@ class DetectionCfg(BaseModel):
 
 
 class TrackingCfg(BaseModel):
+    enabled: bool = True
     tracker: str = "bytetrack.yaml"
     persist: bool = True
+    max_players: int = 2
 
 
 class CourtCfg(BaseModel):
     enabled: bool = False
     weights: str = "models/court/court_keypoints.pt"
     refresh_every: int = 30
+    min_conf: float = 0.5
+    singles: bool = True       # in/out tested against singles lines when True
 
 
 class LogicCfg(BaseModel):
     enabled: bool = False
+    ball_lost_frames: int = 45     # frames with no ball before a point is deemed over
+    bounce_min_vy: float = 2.0     # min vertical speed (px/frame) to accept a bounce apex
+    bounce_cooldown: int = 8       # min frames between reported bounces
 
 
 class OcrCfg(BaseModel):
@@ -87,12 +104,17 @@ class HighlightsCfg(BaseModel):
     pre_seconds: float = 6.0
     post_seconds: float = 3.0
     output_dir: str = "output/highlights"
+    min_rally: int = 4         # also trigger a clip on rallies at least this long
 
 
 class VizCfg(BaseModel):
     show_window: bool = True
     draw_fps: bool = True
     draw_tracks: bool = True
+    draw_court: bool = True
+    draw_minimap: bool = True
+    draw_trace: bool = True
+    trace_len: int = 12
     window_name: str = "Tennis Analyzer"
 
 

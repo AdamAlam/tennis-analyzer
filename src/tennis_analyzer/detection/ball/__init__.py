@@ -28,10 +28,16 @@ def build_ball_tracker(cfg, yolo_detector=None) -> BallTracker:
     if backend == "tracknet":
         from .tracknet_ball import TrackNetBallTracker
 
+        ball_cfg = cfg.detection.ball
+        size = getattr(ball_cfg, "input_size", None)
+        input_size = (size.width, size.height) if size is not None else (640, 360)
         return TrackNetBallTracker(
-            weights=cfg.detection.ball.tracknet_weights,
+            weights=ball_cfg.tracknet_weights,
             device=cfg.device,
             half=cfg.half_precision,
-            conf=cfg.detection.ball.conf,
+            conf=ball_cfg.conf,
+            input_size=input_size,
+            use_kalman=getattr(ball_cfg, "kalman", True),
+            max_dist=getattr(ball_cfg, "max_dist", 100.0),
         )
     raise ValueError(f"Unknown ball backend: {backend!r}")

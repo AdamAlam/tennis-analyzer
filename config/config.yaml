@@ -31,21 +31,33 @@ detection:
     imgsz: 640
     classes: null         # null = all COCO classes; later restrict, e.g. [0, 32]
   ball:
-    backend: "yolo"       # "yolo" (MVP fallback) | "tracknet" (Step 5)
+    backend: "yolo"       # "yolo" (MVP fallback) | "tracknet" (needs the TrackNet weights)
     tracknet_weights: "models/tracknet/tracknet_tennis.pt"
     conf: 0.50
+    input_size:           # TrackNet input resolution (the pretrained model expects 640x360)
+      width: 640
+      height: 360
+    kalman: true          # smooth the ball track + bridge single-frame misses
+    max_dist: 100.0       # reject ball jumps larger than this many px between frames
 
 tracking:
+  enabled: true           # ByteTrack player tracking with stable ids (uses the YOLO weights)
   tracker: "bytetrack.yaml"   # ultralytics built-in ("bytetrack.yaml" | "botsort.yaml")
   persist: true
+  max_players: 2          # keep only the N most court-central/largest people
 
 court:
-  enabled: false          # turn on at Step 4
+  enabled: false          # set true once models/court/court_keypoints.pt is present
   weights: "models/court/court_keypoints.pt"
   refresh_every: 30       # re-detect keypoints every N frames (cheap for a fixed camera)
+  min_conf: 0.5           # per-keypoint heatmap confidence threshold
+  singles: true           # in/out tested against the singles lines when true
 
 logic:
-  enabled: false          # turn on at Step 6
+  enabled: false          # needs court.enabled (homography) for in/out + bounce mapping
+  ball_lost_frames: 45    # frames with no ball before a point is deemed over
+  bounce_min_vy: 2.0      # min vertical speed (px/frame) to accept a bounce apex
+  bounce_cooldown: 8      # min frames between reported bounces
 
 ocr:
   enabled: false          # turn on at Step 7
@@ -57,13 +69,18 @@ ocr:
   refresh_every: 15       # run OCR every N frames
 
 highlights:
-  enabled: false          # turn on at Step 8
+  enabled: false          # set true to auto-save clips on points / long rallies
   pre_seconds: 6
   post_seconds: 3
   output_dir: "output/highlights"
+  min_rally: 4            # also trigger a clip once a rally reaches this many shots
 
 viz:
   show_window: true
   draw_fps: true
   draw_tracks: true
+  draw_court: true        # draw detected court keypoints (when court.enabled)
+  draw_minimap: true      # top-down minimap in the corner (when a homography is available)
+  draw_trace: true        # fading trail behind the ball
+  trace_len: 12           # number of past ball positions in the trail
   window_name: "Tennis Analyzer"

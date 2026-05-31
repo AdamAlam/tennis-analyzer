@@ -44,8 +44,10 @@ Expected: `cuda available: True`, device `NVIDIA GeForce RTX 5090`, capability `
 python scripts/download_models.py
 ```
 
-This auto-downloads `yolo11n.pt`. For later steps it prints where to place the pretrained
-**TrackNet** (ball) and **TennisCourtDetector** (court) weights.
+This auto-downloads `yolo11n.pt` (via Ultralytics) plus the pretrained **TrackNet** (ball) and
+**TennisCourtDetector** (court) weights from Google Drive (via `gdown`). If a Drive download
+fails (quota/permissions), the script prints the direct links so you can place the files
+manually under `models/tracknet/` and `models/court/`.
 
 ---
 
@@ -81,17 +83,21 @@ Press **`q`** in the preview window to quit.
 
 | Step | Feature | Status |
 |------|---------|--------|
-| 1 | Source (screen/file) + YOLO detection + overlay | ✅ MVP (this build) |
-| 2 | Multi-object tracking (ByteTrack, stable player IDs) | scaffolded |
+| 1 | Source (screen/file) + YOLO detection + overlay | ✅ implemented |
+| 2 | Multi-object tracking (ByteTrack, stable player IDs) | ✅ implemented (`tracking.enabled`) |
 | 3 | Tennis fine-tuning (ball + players) | dataset guide below |
-| 4 | Court keypoints + homography (in/out geometry) | stubbed |
-| 5 | TrackNet ball model (3-frame heatmap) | stubbed |
-| 6 | Game logic (bounce, serve, rally, point winner) | stubbed |
-| 7 | Scoreboard OCR (EasyOCR) | stubbed |
-| 8 | Highlights + player position stats | stubbed |
+| 4 | Court keypoints + homography (in/out geometry) | ✅ implemented (`court.enabled` + weights) |
+| 5 | TrackNet ball model (3-frame heatmap) | ✅ implemented (`ball.backend: tracknet` + weights) |
+| 6 | Game logic (bounce, serve, rally, point winner) | ✅ implemented (`logic.enabled`) |
+| 7 | Scoreboard OCR (EasyOCR) | ✅ implemented (`ocr.enabled`) |
+| 8 | Highlights + player position stats | ✅ implemented (`highlights.enabled`) |
 
-Each stub raises `NotImplementedError` with a docstring describing its target behavior, so the
-repo imports and the MVP runs end-to-end today.
+All stages are implemented and wired into `pipeline.py` behind their `config.yaml` flags.
+Player tracking works out of the box with the stock YOLO weights. The TrackNet ball model
+(Step 5) and court detector (Step 4) need their pretrained `.pt` files - run
+`python scripts/download_models.py` to fetch them, then set `detection.ball.backend: tracknet`
+and `court.enabled: true`. Game logic (Step 6) needs the court homography, so enable the court
+first.
 
 ---
 
